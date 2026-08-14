@@ -289,11 +289,17 @@ export class HttpResponseWebview extends BaseWebview {
         const toolbar = showToolbar
             ? `<div id="json-toolbar" style="display:flex;gap:6px;align-items:center;padding:4px 8px;border-bottom:1px solid var(--vscode-panel-border,#ccc);position:sticky;top:0;background:var(--vscode-editor-background,#fff);z-index:10;">
                  <input id="json-search" type="text" placeholder="Filter JSON (regex)..." style="flex:1;min-width:120px;background:var(--vscode-input-background,#3c3c3c);color:var(--vscode-input-foreground,#fff);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;"/>
-                 <select id="search-mode" title="Search mode (Alt+M)" style="background:var(--vscode-dropdown-background,#3c3c3c);color:var(--vscode-dropdown-foreground,#fff);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;color-scheme:dark light;">
-                   <option value="key" style="background:var(--vscode-dropdown-background,#3c3c3c);color:var(--vscode-dropdown-foreground,#fff);">Key</option>
-                   <option value="value" style="background:var(--vscode-dropdown-background,#3c3c3c);color:var(--vscode-dropdown-foreground,#fff);">Value</option>
-                   <option value="mixed" style="background:var(--vscode-dropdown-background,#3c3c3c);color:var(--vscode-dropdown-foreground,#fff);">Mixed</option>
-                 </select>
+                 <div id="search-mode-wrap" style="position:relative;">
+                   <button id="search-mode-btn" type="button" title="Search mode (Alt+M)" style="background:var(--vscode-dropdown-background,#3c3c3c);color:var(--vscode-dropdown-foreground,#fff);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;cursor:pointer;padding:2px 8px;display:flex;align-items:center;gap:4px;font-size:12px;">
+                     <span id="search-mode-label">Key</span><span style="opacity:0.7;font-size:9px;">▾</span>
+                   </button>
+                   <style>.search-mode-opt:hover{background:var(--vscode-list-hoverBackground,#2a2d2e);} .search-mode-opt{transition:background .08s;}</style>
+                   <div id="search-mode-popup" style="display:none;position:absolute;top:calc(100% + 2px);right:0;background:var(--vscode-dropdown-background,#3c3c3c);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;z-index:20;min-width:90px;box-shadow:0 2px 8px rgba(0,0,0,0.3);overflow:hidden;">
+                     <div class="search-mode-opt" data-value="key" style="padding:4px 12px;cursor:pointer;color:var(--vscode-dropdown-foreground,#fff);">Key</div>
+                     <div class="search-mode-opt" data-value="value" style="padding:4px 12px;cursor:pointer;color:var(--vscode-dropdown-foreground,#fff);">Value</div>
+                     <div class="search-mode-opt" data-value="mixed" style="padding:4px 12px;cursor:pointer;color:var(--vscode-dropdown-foreground,#fff);">Mixed</div>
+                   </div>
+                 </div>
                </div>`
             : '';
 

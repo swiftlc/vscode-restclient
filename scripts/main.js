@@ -4,10 +4,12 @@
 (function () {
 
   // ---- state for JSON search / raw-extracted toggle ----
-  var originalCodeHTML = '';   // initial <code> innerHTML, restored when search is emptied
-  var rawParsed = null;        // parsed JSON of #raw-body, null when not a JSON response
-  var extractedParsed = null;  // parsed JSON of #extracted-body (jsonpath result), null when none
-  var showingAlt = false;      // toggle state: true = showing the alt (raw full) view
+  var originalCodeHTML = '';        // initial <code> innerHTML, restored when search is emptied
+  var rawParsed = null;            // parsed JSON of #raw-body, null when not a JSON response
+  var extractedParsed = null;      // parsed JSON of #extracted-body (jsonpath result), null when none
+  var showingAlt = false;          // toggle state: true = showing the alt (raw full) view
+  var currentMode = 'mixed';       // 'key' | 'value' | 'mixed'
+  var modePopupOpen = false;
 
   function getCode() {
     return document.getElementById('response-code');
@@ -28,7 +30,6 @@
   }
 
   // ---- recursive JSON filter (ported from whistle.http-handle chrome-plugin) ----
-  // mode: 'key' | 'value' | 'mixed'
   function filterJsonRecursive(data, regex, mode) {
     if (typeof data !== 'object' || data === null) {
       if (mode !== 'key' && regex.test(String(data))) {
@@ -46,7 +47,6 @@
     var hasMatch = false;
     for (var key in data) {
       if (mode !== 'value' && regex.test(key)) {
-        // key matches: keep the whole subtree
         result[key] = data[key];
         hasMatch = true;
       } else {
@@ -96,7 +96,6 @@
     var code = getCode();
     if (!code || !rawParsed) { return; }
     var input = document.getElementById('json-search');
-    var mode = document.getElementById('search-mode');
     var q = input ? input.value : '';
     if (!q) {
       code.innerHTML = currentDefaultHTML();
@@ -107,7 +106,7 @@
       var regex = new RegExp(q, 'i');
       // search the currently displayed view: extracted when toggled to it, else raw full
       var source = (showingAlt || !extractedParsed) ? rawParsed : extractedParsed;
-      var filtered = filterJsonRecursive(source, regex, mode ? mode.value : 'key');
+      var filtered = filterJsonRecursive(source, regex, currentMode);
       var filteredStr = filtered !== undefined ? JSON.stringify(filtered, null, 2) : '{}';
       code.innerHTML = highlightJson(filteredStr);
     } catch (e) {
@@ -117,11 +116,47 @@
     }
   }
 
+  // ---- custom mode dropdown (replaces native <select>) ----
+
+  function setModeLabel() {
+    var label = document.getElementById('search-mode-label');
+    if (label) {
+      label.textContent = currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
+    }
+  }
+
+  function openModePopup() {
+    var popup = document.getElementById('search-mode-popup');
+    if (!popup) { return; }
+    var opts = popup.querySelectorAll('.search-mode-opt');
+    opts.forEach(function (o) {
+      o.style.fontWeight = (o.dataset.value === currentMode) ? 'bold' : 'normal';
+    });
+    popup.style.display = 'block';
+    modePopupOpen = true;
+  }
+
+  function closeModePopup() {
+    var popup = document.getElementById('search-mode-popup');
+    if (popup) { popup.style.display = 'none'; }
+    modePopupOpen = false;
+  }
+
+  function toggleModePopup() {
+    if (modePopupOpen) { closeModePopup(); } else { openModePopup(); }
+  }
+
+  function setMode(m) {
+    currentMode = m;
+    setModeLabel();
+    closeModePopup();
+    applySearch();
+  }
+
   function cycleMode() {
-    var mode = document.getElementById('search-mode');
-    if (!mode) { return; }
     var modes = ['key', 'value', 'mixed'];
-    mode.value = modes[(modes.indexOf(mode.value) + 1) % modes.length];
+    currentMode = modes[(modes.indexOf(currentMode) + 1) % modes.length];
+    setModeLabel();
     applySearch();
   }
 
@@ -150,6 +185,26 @@
         }
       });
     }
+
+    var modeBtn = document.getElementById('search-mode-btn');
+    if (modeBtn) {
+      modeBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        toggleModePopup();
+      });
+    }
+    var opts = document.querySelectorAll('.search-mode-opt');
+    opts.forEach(function (o) {
+      o.addEventListener('click', function (e) {
+        e.stopPropagation();
+        setMode(o.dataset.value);
+      });
+    });
+    document.addEventListener('click', function () {
+      if (modePopupOpen) { closeModePopup(); }
+    });
+
+    setModeLabel();
   }
 
   // ---- folding (unchanged) ----
