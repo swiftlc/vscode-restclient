@@ -78,3 +78,29 @@ export const RequestVariableDefinitionRegex: RegExp = RequestVariableDefinitionW
 export const PromptCommentRegex = /^\s*(?:#{1,}|\/{2,})\s*@prompt\s+([^\s]+)(?:\s+(.*))?\s*$/;
 
 export const LineSplitterRegex: RegExp = /\r?\n/g;
+
+// ─── QNH (牵牛花) environment switching ─────────────────────────────────────
+// Switching QNH environments writes `qnh-host` and `qnh-cookie` into the
+// `qnh` environment of `rest-client.environmentVariables`, so existing
+// variable resolution picks them up as `{{qnh-host}}` / `{{qnh-cookie}}`.
+export const QnhEnvironmentName: string = "qnh";
+export const QnhHostVariableName: string = "qnh-host";
+export const QnhCookieVariableName: string = "qnh-cookie";
+
+export type QnhEnvKey = "prod" | "staging" | "swimlane" | "default";
+
+export type QnhFixedEnvKey = Exclude<QnhEnvKey, "swimlane">;
+
+export const QnhFixedHosts: { [key in QnhFixedEnvKey]: string } = {
+    prod: "https://qnh.meituan.com",
+    staging: "https://qnh.shangou.st.meituan.com",
+    default: "https://qnh.shangou.test.meituan.com",
+};
+
+export const QnhSwimlaneHostTpl = (value: string) =>
+    `https://${value}-sl-qnh.shangou.test.meituan.com`;
+
+export const QnhSwimlaneDictCategoryKey: string = "swimlane";
+
+// Sentinel pick value signalling the user chose manual swimlane input
+export const QnhManualInputPickValue: string = "__qnh_manual_swimlane__";

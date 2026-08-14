@@ -7,6 +7,7 @@ import { EnvironmentController } from './controllers/environmentController';
 import { HistoryController } from './controllers/historyController';
 import { RequestController } from './controllers/requestController';
 import { SwaggerController } from './controllers/swaggerController';
+import { QnhController } from './controllers/qnhController';
 import { CustomVariableDiagnosticsProvider } from "./providers/customVariableDiagnosticsProvider";
 import { RequestBodyDocumentLinkProvider } from './providers/documentLinkProvider';
 import { EnvironmentOrFileVariableHoverProvider } from './providers/environmentOrFileVariableHoverProvider';
@@ -34,10 +35,12 @@ export async function activate(context: ExtensionContext) {
     const codeSnippetController = new CodeSnippetController(context);
     const environmentController = await EnvironmentController.create();
     const swaggerController = new SwaggerController(context);
+    const qnhController = new QnhController();
     context.subscriptions.push(requestController);
     context.subscriptions.push(historyController);
     context.subscriptions.push(codeSnippetController);
     context.subscriptions.push(environmentController);
+    context.subscriptions.push(qnhController);
     context.subscriptions.push(commands.registerCommand('rest-client.request', ((document: TextDocument, range: Range) => requestController.run(range))));
     context.subscriptions.push(commands.registerCommand('rest-client.rerun-last-request', () => requestController.rerun()));
     context.subscriptions.push(commands.registerCommand('rest-client.cancel-request', () => requestController.cancel()));
@@ -46,6 +49,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(commands.registerCommand('rest-client.generate-codesnippet', () => codeSnippetController.run()));
     context.subscriptions.push(commands.registerCommand('rest-client.copy-request-as-curl', () => codeSnippetController.copyAsCurl()));
     context.subscriptions.push(commands.registerCommand('rest-client.switch-environment', () => environmentController.switchEnvironment()));
+    context.subscriptions.push(commands.registerCommand('rest-client.switch-qnh-environment', () => qnhController.switchEnvironment()));
     context.subscriptions.push(commands.registerCommand('rest-client.clear-aad-token-cache', () => AadTokenCache.clear()));
     context.subscriptions.push(commands.registerCommand('rest-client.clear-cookies', () => requestController.clearCookies()));
     context.subscriptions.push(commands.registerCommand('rest-client._openDocumentLink', args => {

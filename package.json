@@ -94,6 +94,11 @@
         "category": "Rest Client"
       },
       {
+        "command": "rest-client.switch-qnh-environment",
+        "title": "Switch QNH Environment",
+        "category": "Rest Client"
+      },
+      {
         "command": "rest-client.history",
         "title": "View Request History",
         "category": "Rest Client"
@@ -455,6 +460,12 @@
               }
             ]
           }
+        },
+        "rest-client.qnh.alfredBaseUrl": {
+          "type": "string",
+          "default": "http://localhost:8080",
+          "scope": "resource",
+          "markdownDescription": "Base URL of the local alfred proxy-server used for QNH (牵牛花) environment switching: querying the swimlane dictionary and grabbing Chrome cookies for the target host."
         },
         "rest-client.mimeAndFileExtensionMapping": {
           "type": "object",

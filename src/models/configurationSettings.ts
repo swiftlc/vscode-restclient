@@ -50,6 +50,7 @@ export interface IRestClientSettings {
     readonly enableSendRequestCodeLens: boolean;
     readonly enableCustomVariableReferencesCodeLens: boolean;
     readonly useContentDispositionFilename: boolean;
+    readonly qnhAlfredBaseUrl: string;
 }
 
 export class SystemSettings implements IRestClientSettings {
@@ -86,6 +87,7 @@ export class SystemSettings implements IRestClientSettings {
     private _enableSendRequestCodeLens: boolean;
     private _enableCustomVariableReferencesCodeLens: boolean;
     private _useContentDispositionFilename: boolean;
+    private _qnhAlfredBaseUrl: string;
 
     public get followRedirect() {
         return this._followRedirect;
@@ -219,6 +221,10 @@ export class SystemSettings implements IRestClientSettings {
         return this._useContentDispositionFilename;
     }
 
+    public get qnhAlfredBaseUrl() {
+        return this._qnhAlfredBaseUrl;
+    }
+
     private readonly brackets: CharacterPair[];
 
     private static _instance: SystemSettings;
@@ -295,6 +301,7 @@ export class SystemSettings implements IRestClientSettings {
         this._enableSendRequestCodeLens = restClientSettings.get<boolean>('enableSendRequestCodeLens', true);
         this._enableCustomVariableReferencesCodeLens = restClientSettings.get<boolean>('enableCustomVariableReferencesCodeLens', true);
         this._useContentDispositionFilename = restClientSettings.get<boolean>('useContentDispositionFilename', true);
+        this._qnhAlfredBaseUrl = restClientSettings.get<string>("qnh.alfredBaseUrl", "http://localhost:8080");
         languages.setLanguageConfiguration('http', { brackets: this._addRequestBodyLineIndentationAroundBrackets ? this.brackets : [] });
 
         const httpSettings = workspace.getConfiguration("http");
@@ -469,6 +476,10 @@ export class RestClientSettings implements IRestClientSettings {
 
     public get useContentDispositionFilename() {
         return this.systemSettings.useContentDispositionFilename;
+    }
+
+    public get qnhAlfredBaseUrl() {
+        return this.systemSettings.qnhAlfredBaseUrl;
     }
 
     private readonly systemSettings = SystemSettings.Instance;
