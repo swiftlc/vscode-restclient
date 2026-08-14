@@ -80,12 +80,15 @@ export const PromptCommentRegex = /^\s*(?:#{1,}|\/{2,})\s*@prompt\s+([^\s]+)(?:\
 export const LineSplitterRegex: RegExp = /\r?\n/g;
 
 // ─── QNH (牵牛花) environment switching ─────────────────────────────────────
-// Switching QNH environments writes `qnh-host` and `qnh-cookie` into the
-// `qnh` environment of `rest-client.environmentVariables`, so existing
-// variable resolution picks them up as `{{qnh-host}}` / `{{qnh-cookie}}`.
-export const QnhEnvironmentName: string = "qnh";
+// Switching QNH environments writes `qnh-host` / `qnh-cookie` / `qnh-tenant-id`
+// / `qnh-account-id` into the `$shared` environment of
+// `rest-client.environmentVariables`, so they are available in every
+// environment (and under "No Environment") via `{{qnh-host}}` etc.
+export const QnhEnvironmentName: string = "$shared";
 export const QnhHostVariableName: string = "qnh-host";
 export const QnhCookieVariableName: string = "qnh-cookie";
+export const QnhTenantIdVariableName: string = "qnh-tenant-id";
+export const QnhAccountIdVariableName: string = "qnh-account-id";
 
 export type QnhEnvKey = "prod" | "staging" | "swimlane" | "default";
 
@@ -104,3 +107,13 @@ export const QnhSwimlaneDictCategoryKey: string = "swimlane";
 
 // Sentinel pick value signalling the user chose manual swimlane input
 export const QnhManualInputPickValue: string = "__qnh_manual_swimlane__";
+
+// QNH isLogined endpoint — validates the grabbed cookie and returns the current
+// tenant/user info (uid, tenantId, accountId, accountName, tenantName, ...).
+// The host is the resolved QNH environment host.
+export const QnhIsLoginedPath: string = "/api/v1/isLogined";
+export const QnhIsLoginedQuery: string = "yodaReady=h5&csecplatform=4&csecversion=4.3.0";
+
+// globalState key under which the last chosen QNH environment is persisted,
+// so it can be restored (re-fetch cookie + isLogined) on activation.
+export const QnhLastEnvironmentStateKey: string = "rest-client.qnh.lastEnvironment";

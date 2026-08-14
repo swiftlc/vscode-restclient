@@ -35,7 +35,9 @@ export async function activate(context: ExtensionContext) {
     const codeSnippetController = new CodeSnippetController(context);
     const environmentController = await EnvironmentController.create();
     const swaggerController = new SwaggerController(context);
-    const qnhController = new QnhController();
+    const qnhController = new QnhController(context);
+    // restore the last QNH environment on activation (re-fetch cookie + validate login)
+    void qnhController.restoreLastEnvironment();
     context.subscriptions.push(requestController);
     context.subscriptions.push(historyController);
     context.subscriptions.push(codeSnippetController);
