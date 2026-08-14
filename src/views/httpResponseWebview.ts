@@ -15,6 +15,7 @@ import { BaseWebview } from './baseWebview';
 
 const hljs = require('highlight.js');
 const contentDisposition = require('content-disposition');
+const { JSONPath } = require('jsonpath-plus');
 
 const OPEN = 'Open';
 const COPYPATH = 'Copy Path';
@@ -53,6 +54,12 @@ export class HttpResponseWebview extends BaseWebview {
         }
     }
 
+    private setHasExtract(response: HttpResponse | undefined) {
+        const has = !!response?.request?.responseJsonPath
+            && (MimeUtility.isJSON(response.contentType) || isJSONString(response.body));
+        commands.executeCommand('setContext', 'qnhHasExtract', has);
+    }
+
     public constructor(context: ExtensionContext) {
         super(context);
 
@@ -67,6 +74,7 @@ export class HttpResponseWebview extends BaseWebview {
         this.context.subscriptions.push(commands.registerCommand('rest-client.copy-response-body', this.copyBody, this));
         this.context.subscriptions.push(commands.registerCommand('rest-client.save-response', this.save, this));
         this.context.subscriptions.push(commands.registerCommand('rest-client.save-response-body', this.saveBody, this));
+        this.context.subscriptions.push(commands.registerCommand('rest-client.toggle-response-extract', this.toggleExtract, this));
     }
 
     public async render(response: HttpResponse, column: ViewColumn) {
@@ -87,6 +95,7 @@ export class HttpResponseWebview extends BaseWebview {
                     this.setPreviewActiveContext(false);
                     this.activePanel = undefined;
                     this.setIsHTMLResponse(undefined);
+                    this.setHasExtract(undefined);
                 }
 
                 const index = this.panels.findIndex(v => v === panel);
@@ -106,6 +115,7 @@ export class HttpResponseWebview extends BaseWebview {
                 this.setPreviewActiveContext(active);
                 this.activePanel = webviewPanel.active ? webviewPanel : undefined;
                 this.setIsHTMLResponse(this.activeResponse);
+                this.setHasExtract(this.activeResponse);
             });
 
             this.panels.push(panel);
@@ -124,6 +134,7 @@ export class HttpResponseWebview extends BaseWebview {
         this.activePanel = panel;
 
         this.setIsHTMLResponse(this.activeResponse);
+        this.setHasExtract(this.activeResponse);
     }
 
     public dispose() {
@@ -152,6 +163,11 @@ export class HttpResponseWebview extends BaseWebview {
         if (this.activeResponse && this.activePanel) {
             this.activePanel.webview.html = this.getHtmlForWebview(this.activePanel, this.activeResponse);
         }
+    }
+
+    @trace('Toggle Extract')
+    private toggleExtract() {
+        this.activePanel?.webview.postMessage({ command: 'toggleExtract' });
     }
 
     @trace('Copy Response Body')
@@ -240,13 +256,50 @@ export class HttpResponseWebview extends BaseWebview {
         if (contentType) {
             contentType = contentType.trim();
         }
+        const isJson = MimeUtility.isJSON(contentType) || isJSONString(response.body);
+        const jsonPath = response.request?.responseJsonPath;
+        let hasToggle = false;
+        let extractedBodyScript = '';
+
         if (MimeUtility.isBrowserSupportedImageFormat(contentType) && !HttpResponseWebview.isHeadRequest(response)) {
             innerHtml = `<img src="data:${contentType};base64,${base64(response.bodyBuffer)}">`;
         } else {
-            const code = this.highlightResponse(response);
-            width = (code.split(/\r\n|\r|\n/).length + 1).toString().length;
-            innerHtml = `<pre><code>${this.addLineNums(code)}</code></pre>`;
+            const fullCode = this.highlightResponse(response);
+            let defaultCode = fullCode;
+            let altCode = '';
+            if (jsonPath && isJson) {
+                const extracted = this.extractJsonPath(response, jsonPath);
+                if (extracted !== undefined) {
+                    altCode = fullCode;
+                    defaultCode = this.highlightBodyString(extracted);
+                    hasToggle = true;
+                    extractedBodyScript = `<script type="application/json" id="extracted-body">${HttpResponseWebview.escapeForScript(extracted)}</script>`;
+                }
+            }
+            width = (defaultCode.split(/\r\n|\r|\n/).length + 1).toString().length;
+            const codeHtml = this.addLineNums(defaultCode);
+            innerHtml = `<pre><code id="response-code">${codeHtml}</code></pre>`;
+            if (hasToggle) {
+                innerHtml += `<script type="text/html" id="html-default">${HttpResponseWebview.escapeForScript(codeHtml)}</script>`;
+                innerHtml += `<script type="text/html" id="html-alt">${HttpResponseWebview.escapeForScript(this.addLineNums(altCode))}</script>`;
+            }
         }
+
+        const showToolbar = isJson && !MimeUtility.isBrowserSupportedImageFormat(contentType);
+        const toolbar = showToolbar
+            ? `<div id="json-toolbar" style="display:flex;gap:6px;align-items:center;padding:4px 8px;border-bottom:1px solid var(--vscode-panel-border,#ccc);position:sticky;top:0;background:var(--vscode-editor-background,#fff);z-index:10;">
+                 <input id="json-search" type="text" placeholder="Filter JSON (regex)..." style="flex:1;min-width:120px;background:var(--vscode-input-background,#3c3c3c);color:var(--vscode-input-foreground,#fff);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;"/>
+                 <select id="search-mode" title="Search mode (Alt+M)" style="background:var(--vscode-dropdown-background,#3c3c3c);color:var(--vscode-dropdown-foreground,#fff);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;color-scheme:dark light;">
+                   <option value="key" style="background:var(--vscode-dropdown-background,#3c3c3c);color:var(--vscode-dropdown-foreground,#fff);">Key</option>
+                   <option value="value" style="background:var(--vscode-dropdown-background,#3c3c3c);color:var(--vscode-dropdown-foreground,#fff);">Value</option>
+                   <option value="mixed" style="background:var(--vscode-dropdown-background,#3c3c3c);color:var(--vscode-dropdown-foreground,#fff);">Mixed</option>
+                 </select>
+               </div>`
+            : '';
+
+        const rawBodyScript = (isJson && response.body)
+            ? `<script type="application/json" id="raw-body">${HttpResponseWebview.escapeForScript(response.body)}</script>`
+            : '';
 
         // Content Security Policy
         const nonce = new Date().getTime() + '' + new Date().getMilliseconds();
@@ -266,14 +319,52 @@ export class HttpResponseWebview extends BaseWebview {
         </script>
     </head>
     <body>
+        ${toolbar}
         <div>
             ${this.settings.disableAddingHrefLinkForLargeResponse && response.bodySizeInBytes > this.settings.largeResponseBodySizeLimitInMB * 1024 * 1024
                 ? innerHtml
                 : this.addUrlLinks(innerHtml)}
             <a id="scroll-to-top" role="button" aria-label="scroll to top" title="Scroll To Top"><span class="icon"></span></a>
         </div>
+        ${rawBodyScript}
+        ${extractedBodyScript}
         <script type="text/javascript" src="${panel.webview.asWebviewUri(this.scriptFilePath)}" nonce="${nonce}" charset="UTF-8"></script>
     </body>`;
+    }
+
+    private extractJsonPath(response: HttpResponse, jsonPath: string): string | undefined {
+        try {
+            const parsed = JSON.parse(response.body);
+            const result = JSONPath({ path: jsonPath, json: parsed });
+            if (!result || result.length === 0) {
+                return undefined;
+            }
+            const value = result[0];
+            if (typeof value === 'string') {
+                // the extracted value may be a string whose content is itself JSON
+                // (e.g. an escaped JSON payload) — pretty-print it as JSON
+                try {
+                    return JSON.stringify(JSON.parse(value), null, 2);
+                } catch {
+                    return JSON.stringify(value, null, 2);
+                }
+            }
+            return JSON.stringify(value, null, 2);
+        } catch {
+            return undefined;
+        }
+    }
+
+    private highlightBodyString(body: string): string {
+        try {
+            return hljs.highlight('json', body).value;
+        } catch {
+            return body;
+        }
+    }
+
+    private static escapeForScript(s: string): string {
+        return s.replace(/<\/(script)/gi, '<\\/$1');
     }
 
     private highlightResponse(response: HttpResponse): string {

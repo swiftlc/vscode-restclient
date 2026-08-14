@@ -21,6 +21,12 @@ export enum RequestMetadata {
      * Used to allow user to interactively input variables for this request
      */
     Prompt = 'prompt',
+
+    /**
+     * A JSONPath expression evaluated against the response body; the extracted
+     * part is shown in the response panel (with a raw/extracted toggle).
+     */
+    ResponseJsonPath = 'response-jsonpath',
 }
 
 export function fromString(value: string): RequestMetadata | undefined {

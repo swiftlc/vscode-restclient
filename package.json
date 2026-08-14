@@ -136,6 +136,15 @@
         "category": "Rest Client"
       },
       {
+        "command": "rest-client.toggle-response-extract",
+        "title": "Toggle Raw / Extracted",
+        "icon": {
+          "light": "./images/toggle-extract.svg",
+          "dark": "./images/toggle-extract-inverse.svg"
+        },
+        "category": "Rest Client"
+      },
+      {
         "command": "rest-client.generate-codesnippet",
         "title": "Generate Code Snippet",
         "category": "Rest Client"
@@ -221,6 +230,10 @@
           "when": "httpResponsePreviewFocus"
         },
         {
+          "command": "rest-client.toggle-response-extract",
+          "when": "qnhHasExtract"
+        },
+        {
           "command": "rest-client.copy-codesnippet",
           "when": "codeSnippetPreviewFocus"
         }
@@ -260,6 +273,11 @@
           "when": "isHTMLResponse",
           "command": "rest-client.show-raw-response",
           "group": "1_rest-client@4"
+        },
+        {
+          "when": "qnhHasExtract",
+          "command": "rest-client.toggle-response-extract",
+          "group": "1_rest-client@5"
         },
         {
           "when": "codeSnippetPreviewFocus",

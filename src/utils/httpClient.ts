@@ -82,6 +82,18 @@ export class HttpClient {
 
         const requestBody = options.body;
 
+        const responseRequest = new HttpRequest(
+            options.method!,
+            requestUrl,
+            HttpClient.normalizeHeaderNames(
+                (response as any).request.options.headers as RequestHeaders,
+                Object.keys(httpRequest.headers)),
+            Buffer.isBuffer(requestBody) ? convertBufferToStream(requestBody) : requestBody,
+            httpRequest.rawBody,
+            httpRequest.name
+        );
+        // carry over request-scoped display metadata (e.g. @response-jsonpath) to the response view
+        responseRequest.responseJsonPath = httpRequest.responseJsonPath;
         return new HttpResponse(
             response.statusCode,
             response.statusMessage!,
@@ -92,16 +104,7 @@ export class HttpClient {
             headersSize,
             bodyBuffer,
             response.timings.phases,
-            new HttpRequest(
-                options.method!,
-                requestUrl,
-                HttpClient.normalizeHeaderNames(
-                    (response as any).request.options.headers as RequestHeaders,
-                    Object.keys(httpRequest.headers)),
-                Buffer.isBuffer(requestBody) ? convertBufferToStream(requestBody) : requestBody,
-                httpRequest.rawBody,
-                httpRequest.name
-            ));
+            responseRequest);
     }
 
     public async clearCookies() {
