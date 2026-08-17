@@ -16,6 +16,8 @@ export abstract class BaseWebview {
 
     protected readonly scriptFilePath: Uri;
 
+    protected readonly pinyinScriptFilePath: Uri;
+
     protected readonly iconFilePath: Uri;
 
     protected panels: WebviewPanel[] = [];
@@ -27,6 +29,7 @@ export abstract class BaseWebview {
         this.vscodeStyleFilePath = Uri.file(this.context.asAbsolutePath(path.join('styles', 'vscode.css')));
         this.customStyleFilePath = Uri.file(this.context.asAbsolutePath(path.join('styles', 'rest-client.css')));
         this.scriptFilePath = Uri.file(this.context.asAbsolutePath(path.join('scripts', 'main.js')));
+        this.pinyinScriptFilePath = Uri.file(this.context.asAbsolutePath(path.join('scripts', 'pinyin-pro.js')));
         this.iconFilePath = Uri.file(this.context.asAbsolutePath(path.join('images', 'rest_icon.png')));
     }
 

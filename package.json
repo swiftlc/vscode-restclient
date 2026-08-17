@@ -99,6 +99,11 @@
         "category": "Rest Client"
       },
       {
+        "command": "rest-client.reload-qnh-environment",
+        "title": "Reload QNH Environment Variables",
+        "category": "Rest Client"
+      },
+      {
         "command": "rest-client.history",
         "title": "View Request History",
         "category": "Rest Client"
@@ -774,6 +779,7 @@
     "node-fetch": "^2.6.7",
     "node-jws": "^0.1.4",
     "open": "^10.1.0",
+    "pinyin-pro": "^3.29.2",
     "pretty-data": "^0.40.0",
     "sanitize-html": "^2.13.0",
     "tough-cookie": "^4.1.3",

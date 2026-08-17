@@ -23,10 +23,11 @@ export enum RequestMetadata {
     Prompt = 'prompt',
 
     /**
-     * A JSONPath expression evaluated against the response body; the extracted
-     * part is shown in the response panel (with a raw/extracted toggle).
+     * A pipeline of JSONPath / key/value/mixed filter steps (separated by `|`)
+     * evaluated against the response body from left to right; the final result
+     * is shown in the response panel (with a raw/extracted toggle).
      */
-    ResponseJsonPath = 'response-jsonpath',
+    ResponsePipeline = 'response-pipeline',
 }
 
 export function fromString(value: string): RequestMetadata | undefined {

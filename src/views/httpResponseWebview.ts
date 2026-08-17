@@ -16,6 +16,7 @@ import { BaseWebview } from './baseWebview';
 const hljs = require('highlight.js');
 const contentDisposition = require('content-disposition');
 const { JSONPath } = require('jsonpath-plus');
+const { pinyin } = require('pinyin-pro');
 
 const OPEN = 'Open';
 const COPYPATH = 'Copy Path';
@@ -55,7 +56,7 @@ export class HttpResponseWebview extends BaseWebview {
     }
 
     private setHasExtract(response: HttpResponse | undefined) {
-        const has = !!response?.request?.responseJsonPath
+        const has = !!response?.request?.responsePipeline
             && (MimeUtility.isJSON(response.contentType) || isJSONString(response.body));
         commands.executeCommand('setContext', 'qnhHasExtract', has);
     }
@@ -257,7 +258,7 @@ export class HttpResponseWebview extends BaseWebview {
             contentType = contentType.trim();
         }
         const isJson = MimeUtility.isJSON(contentType) || isJSONString(response.body);
-        const jsonPath = response.request?.responseJsonPath;
+        const pipeline = response.request?.responsePipeline;
         let hasToggle = false;
         let extractedBodyScript = '';
 
@@ -267,8 +268,8 @@ export class HttpResponseWebview extends BaseWebview {
             const fullCode = this.highlightResponse(response);
             let defaultCode = fullCode;
             let altCode = '';
-            if (jsonPath && isJson) {
-                const extracted = this.extractJsonPath(response, jsonPath);
+            if (pipeline && isJson) {
+                const extracted = this.executePipeline(response, pipeline);
                 if (extracted !== undefined) {
                     altCode = fullCode;
                     defaultCode = this.highlightBodyString(extracted);
@@ -288,7 +289,8 @@ export class HttpResponseWebview extends BaseWebview {
         const showToolbar = isJson && !MimeUtility.isBrowserSupportedImageFormat(contentType);
         const toolbar = showToolbar
             ? `<div id="json-toolbar" style="display:flex;gap:6px;align-items:center;padding:4px 8px;border-bottom:1px solid var(--vscode-panel-border,#ccc);position:sticky;top:0;background:var(--vscode-editor-background,#fff);z-index:10;">
-                 <input id="json-search" type="text" placeholder="Filter JSON (regex)..." style="flex:1;min-width:120px;background:var(--vscode-input-background,#3c3c3c);color:var(--vscode-input-foreground,#fff);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;"/>
+                 <input id="json-filter" type="text" placeholder="Filter (regex)..." style="flex:1;min-width:100px;background:var(--vscode-input-background,#3c3c3c);color:var(--vscode-input-foreground,#fff);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;"/>
+                 <input id="json-path" type="text" placeholder="JSONPath, e.g. $.data.list[0]" style="flex:1;min-width:100px;background:var(--vscode-input-background,#3c3c3c);color:var(--vscode-input-foreground,#fff);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;"/>
                  <div id="search-mode-wrap" style="position:relative;">
                    <button id="search-mode-btn" type="button" title="Search mode (Alt+M)" style="background:var(--vscode-dropdown-background,#3c3c3c);color:var(--vscode-dropdown-foreground,#fff);border:1px solid var(--vscode-input-border,transparent);border-radius:2px;cursor:pointer;padding:2px 8px;display:flex;align-items:center;gap:4px;font-size:12px;">
                      <span id="search-mode-label">Key</span><span style="opacity:0.7;font-size:9px;">▾</span>
@@ -334,31 +336,183 @@ export class HttpResponseWebview extends BaseWebview {
         </div>
         ${rawBodyScript}
         ${extractedBodyScript}
+        <script type="text/javascript" src="${panel.webview.asWebviewUri(this.pinyinScriptFilePath)}" nonce="${nonce}" charset="UTF-8"></script>
         <script type="text/javascript" src="${panel.webview.asWebviewUri(this.scriptFilePath)}" nonce="${nonce}" charset="UTF-8"></script>
     </body>`;
     }
 
-    private extractJsonPath(response: HttpResponse, jsonPath: string): string | undefined {
+    /**
+     * Execute a response pipeline: a `|`-separated list of steps evaluated left
+     * to right against the response body. Each step is either a JSONPath (`$...`)
+     * extraction or a `key:`/`value:`/`mixed:` filter (boolean expression with
+     * `&&`/`||`/`!`/parentheses + pinyin fallback). `|` inside a filter must be
+     * escaped as `\|` so it isn't treated as a step separator. Returns the
+     * final value as a pretty-printed JSON string, or undefined if any step misses.
+     */
+    private executePipeline(response: HttpResponse, pipelineStr: string): string | undefined {
+        let current: any;
         try {
-            const parsed = JSON.parse(response.body);
-            const result = JSONPath({ path: jsonPath, json: parsed });
-            if (!result || result.length === 0) {
-                return undefined;
-            }
-            const value = result[0];
-            if (typeof value === 'string') {
-                // the extracted value may be a string whose content is itself JSON
-                // (e.g. an escaped JSON payload) — pretty-print it as JSON
-                try {
-                    return JSON.stringify(JSON.parse(value), null, 2);
-                } catch {
-                    return JSON.stringify(value, null, 2);
-                }
-            }
-            return JSON.stringify(value, null, 2);
+            current = JSON.parse(response.body);
         } catch {
             return undefined;
         }
+        // split on non-escaped `|` (so `\|` survives inside a filter expression),
+        // then unescape `\|` -> `|`
+        const steps = pipelineStr.split(/(?<!\\)\|/)
+            .map(s => s.replace(/\\\|/g, '|').trim())
+            .filter(s => s.length > 0);
+        for (const step of steps) {
+            if (step.startsWith('$')) {
+                try {
+                    const result = JSONPath({ path: step, json: current });
+                    if (!result || result.length === 0) { return undefined; }
+                    current = result.length === 1 ? result[0] : result;
+                    // if the extracted value is a JSON-encoded string, parse it so
+                    // downstream steps can operate on its structure
+                    if (typeof current === 'string') {
+                        try { current = JSON.parse(current); } catch { /* keep as raw string */ }
+                    }
+                } catch {
+                    return undefined;
+                }
+            } else {
+                const m = step.match(/^(key|value|mixed):\s*(.*)$/);
+                if (!m) { continue; }
+                const ast = HttpResponseWebview.parseFilterExpr(m[2].trim());
+                const matchFn = HttpResponseWebview.makeMatchFn();
+                current = HttpResponseWebview.filterJsonRecursive(current, ast, m[1], matchFn);
+                if (current === undefined) { return undefined; }
+            }
+        }
+        if (typeof current === 'string') {
+            // the final value may be a string whose content is itself JSON
+            try { return JSON.stringify(JSON.parse(current), null, 2); } catch { return JSON.stringify(current); }
+        }
+        return JSON.stringify(current, null, 2);
+    }
+
+    // boolean filter expression (&&, ||, !, parentheses). grammar:
+    //   or := and ('||' and)* ; and := not ('&&' not)* ; not := '!' not | atom ; atom := '(' or ')' | word
+    private static parseFilterExpr(expr: string): any {
+        const tokens: any[] = [];
+        let i = 0;
+        while (i < expr.length) {
+            const c = expr[i];
+            if (c === ' ' || c === '\t') {
+                const last = tokens[tokens.length - 1];
+                if (last && (last.t === 'word' || last.t === 'rparen')) { tokens.push({ t: 'and' }); }
+                i++; continue;
+            }
+            if (expr[i] === '&' && expr[i + 1] === '&') {
+                const lastA = tokens[tokens.length - 1];
+                if (lastA && (lastA.t === 'word' || lastA.t === 'rparen')) { tokens.push({ t: 'and' }); }
+                i += 2; continue;
+            }
+            if (expr[i] === '|' && expr[i + 1] === '|') { tokens.push({ t: 'or' }); i += 2; continue; }
+            if (c === '&' || c === '|') { i++; continue; } // lone operator char, skip
+            if (c === '!') { tokens.push({ t: 'not' }); i++; continue; }
+            if (c === '(') { tokens.push({ t: 'lparen' }); i++; continue; }
+            if (c === ')') { tokens.push({ t: 'rparen' }); i++; continue; }
+            let j = i;
+            while (j < expr.length && !/[\s&|!()]/.test(expr[j])) { j++; }
+            tokens.push({ t: 'word', v: expr.slice(i, j) }); i = j;
+        }
+        let pos = 0;
+        const peek = () => tokens[pos];
+        const parseOr = (): any => {
+            let left = parseAnd();
+            while (peek() && peek().t === 'or') { pos++; const right = parseAnd(); if (right.op === 'leaf' && !right.p) { break; } left = { op: 'or', l: left, r: right }; }
+            return left;
+        };
+        const parseAnd = (): any => {
+            let left = parseNot();
+            while (peek() && peek().t === 'and') { pos++; const right = parseNot(); if (right.op === 'leaf' && !right.p) { break; } left = { op: 'and', l: left, r: right }; }
+            return left;
+        };
+        const parseNot = (): any => {
+            if (peek() && peek().t === 'not') { pos++; return { op: 'not', c: parseNot() }; }
+            return parseAtom();
+        };
+        const parseAtom = (): any => {
+            const tk = peek();
+            if (tk && tk.t === 'lparen') { pos++; const e = parseOr(); if (peek() && peek().t === 'rparen') { pos++; } return e; }
+            if (tk && tk.t === 'word') { pos++; return { op: 'leaf', p: tk.v }; }
+            return { op: 'leaf', p: '' };
+        };
+        return parseOr();
+    }
+
+    private static evalFilter(ast: any, str: string, matchFn: (p: string, s: string) => boolean): boolean {
+        if (!ast) { return false; }
+        if (ast.op === 'leaf') { return matchFn(ast.p, str); }
+        if (ast.op === 'not') { return !HttpResponseWebview.evalFilter(ast.c, str, matchFn); }
+        if (ast.op === 'and') { return HttpResponseWebview.evalFilter(ast.l, str, matchFn) && HttpResponseWebview.evalFilter(ast.r, str, matchFn); }
+        if (ast.op === 'or') { return HttpResponseWebview.evalFilter(ast.l, str, matchFn) || HttpResponseWebview.evalFilter(ast.r, str, matchFn); }
+        return false;
+    }
+
+    // match a pattern against a string, falling back to pinyin (full + initials)
+    // so that e.g. "zhang" matches "张", "zs" matches "张三".
+    private static makeMatchFn(): (p: string, s: string) => boolean {
+        return (pattern, str) => {
+            if (!pattern || str === undefined || str === null) { return false; }
+            let regex: RegExp;
+            try { regex = new RegExp(pattern, 'i'); } catch { return false; }
+            const s = String(str);
+            if (regex.test(s)) { return true; }
+            try {
+                const arr = pinyin(s, { toneType: 'none', type: 'array' }) || [];
+                const full = arr.join('');
+                const initials = arr.map((x: string) => x ? x[0] : '').join('');
+                if (regex.test(full) || regex.test(initials)) { return true; }
+            } catch { /* ignore */ }
+            return false;
+        };
+    }
+
+    private static filterJsonRecursive(data: any, ast: any, mode: string, matchFn: (p: string, s: string) => boolean): any {
+        // top-level NOT: exclude matches (key or value) instead of including
+        if (ast && ast.op === 'not') {
+            const inner = ast.c;
+            if (typeof data !== 'object' || data === null) {
+                if (mode === 'key') { return undefined; }
+                return HttpResponseWebview.evalFilter(inner, String(data), matchFn) ? undefined : data;
+            }
+            if (Array.isArray(data)) {
+                const af = data.map(item => HttpResponseWebview.filterJsonRecursive(item, ast, mode, matchFn)).filter(v => v !== undefined);
+                return af.length > 0 ? af : undefined;
+            }
+            const ar: any = {};
+            let ah = false;
+            for (const k in data) {
+                if (mode !== 'value' && HttpResponseWebview.evalFilter(inner, k, matchFn)) { continue; } // key matches excluded pattern -> drop
+                const fv = HttpResponseWebview.filterJsonRecursive(data[k], ast, mode, matchFn);
+                if (fv !== undefined) { ar[k] = fv; ah = true; }
+            }
+            return ah ? ar : undefined;
+        }
+        if (typeof data !== 'object' || data === null) {
+            return (mode !== 'key' && HttpResponseWebview.evalFilter(ast, String(data), matchFn)) ? data : undefined;
+        }
+        if (Array.isArray(data)) {
+            const filtered = data.map(item => HttpResponseWebview.filterJsonRecursive(item, ast, mode, matchFn)).filter(v => v !== undefined);
+            return filtered.length > 0 ? filtered : undefined;
+        }
+        const result: any = {};
+        let hasMatch = false;
+        for (const key in data) {
+            if (mode !== 'value' && HttpResponseWebview.evalFilter(ast, key, matchFn)) {
+                result[key] = data[key];
+                hasMatch = true;
+            } else {
+                const filteredVal = HttpResponseWebview.filterJsonRecursive(data[key], ast, mode, matchFn);
+                if (filteredVal !== undefined) {
+                    result[key] = filteredVal;
+                    hasMatch = true;
+                }
+            }
+        }
+        return hasMatch ? result : undefined;
     }
 
     private highlightBodyString(body: string): string {

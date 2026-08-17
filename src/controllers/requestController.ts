@@ -59,7 +59,7 @@ export class RequestController {
 
         // parse http request
         const httpRequest = await RequestParserFactory.createRequestParser(text, settings).parseHttpRequest(name);
-        httpRequest.responseJsonPath = metadatas.get(RequestMetadata.ResponseJsonPath);
+        httpRequest.responsePipeline = metadatas.get(RequestMetadata.ResponsePipeline);
 
         await this.runCore(httpRequest, settings, document);
     }

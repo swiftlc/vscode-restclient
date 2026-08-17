@@ -85,6 +85,14 @@ export class QnhController {
     }
 
     /**
+     * Reload the current QNH environment's variables (re-grab cookie + isLogined)
+     * without changing the selected environment.
+     */
+    public async reloadEnvironment(): Promise<void> {
+        await this.restoreLastEnvironment();
+    }
+
+    /**
      * Core switching logic shared by manual switch and auto-restore.
      *
      * @param quiet when true (auto-restore), suppress the success information toast;

@@ -46,7 +46,19 @@ export class HttpDocumentSymbolProvider implements DocumentSymbolProvider {
             }
 
             if (blockStart <= blockEnd) {
-                const [name, container] = await this.getRequestSymbolInfo(lines[blockStart], requestName);
+                // find the `### <title>` delimiter text preceding this block, if any
+                let delimiterTitle: string | undefined;
+                for (let i = blockStart - 1; i >= 0; i--) {
+                    const prev = lines[i];
+                    if (/^\s*#{3,}\s+.+/.test(prev)) {
+                        delimiterTitle = prev.replace(/^\s*#{3,}\s+/, '').trim();
+                        break;
+                    }
+                    if (!Selector.isCommentLine(prev) && !Selector.isEmptyLine(prev)) {
+                        break;
+                    }
+                }
+                const [name, container] = await this.getRequestSymbolInfo(lines[blockStart], requestName, delimiterTitle);
                 symbols.push(
                     new SymbolInformation(
                         name,
@@ -66,7 +78,7 @@ export class HttpDocumentSymbolProvider implements DocumentSymbolProvider {
         return [line.substring(1, line.indexOf('=')).trim(), fileName!];
     }
 
-    private async getRequestSymbolInfo(rawText: string, name: string | undefined): Promise<[string, string]> {
+    private async getRequestSymbolInfo(rawText: string, name: string | undefined, delimiterTitle?: string): Promise<[string, string]> {
         // For request with name, return the request name and file name instead
         if (name) {
             return [name, getCurrentHttpFileName()!];
@@ -76,6 +88,8 @@ export class HttpDocumentSymbolProvider implements DocumentSymbolProvider {
         const parser = RequestParserFactory.createRequestParser(text);
         const request = await parser.parseHttpRequest();
         const parsedUrl = url.parse(request.url);
-        return [`${request.method} ${parsedUrl.path}`, parsedUrl.host || ''];
+        const methodPath = `${request.method} ${parsedUrl.path || '/'}`;
+        // show the `### <title>` as the container when present, else the host
+        return [methodPath, delimiterTitle || parsedUrl.host || ''];
     }
 }

@@ -6,11 +6,11 @@ import { RequestHeaders } from './base';
 export class HttpRequest {
     public isCancelled: boolean;
     /**
-     * Optional JSONPath configured via `# @response-jsonpath` to extract a part
-     * of the response body for display. Set from request metadata by the
-     * request controller; read by the response webview.
+     * Optional response pipeline configured via `# @response-pipeline`: a series
+     * of JSONPath / key/value/mixed filter steps separated by `|`. Set from
+     * request metadata by the request controller; read by the response webview.
      */
-    public responseJsonPath?: string;
+    public responsePipeline?: string;
     private _underlyingRequest: CancelableRequest<Response<Buffer>>;
     public constructor(
         public method: string,

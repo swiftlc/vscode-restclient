@@ -101,5 +101,19 @@
             "# @note"
         ],
         "description": "Add sending request confirmation"
+    },
+    "Content-Type application/json": {
+        "prefix": "cjson",
+        "body": [
+            "Content-Type: application/json"
+        ],
+        "description": "Content-Type: application/json header"
+    },
+    "Response pipeline annotation": {
+        "prefix": "jp",
+        "body": [
+            "# @response-pipeline ${1:$.} | key: | value:"
+        ],
+        "description": "Annotate a request with a response processing pipeline (JSONPath + filters, pipe-separated)"
     }
 }

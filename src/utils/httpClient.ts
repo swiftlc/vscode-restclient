@@ -92,8 +92,8 @@ export class HttpClient {
             httpRequest.rawBody,
             httpRequest.name
         );
-        // carry over request-scoped display metadata (e.g. @response-jsonpath) to the response view
-        responseRequest.responseJsonPath = httpRequest.responseJsonPath;
+        // carry over request-scoped display metadata (e.g. @response-pipeline) to the response view
+        responseRequest.responsePipeline = httpRequest.responsePipeline;
         return new HttpResponse(
             response.statusCode,
             response.statusMessage!,
