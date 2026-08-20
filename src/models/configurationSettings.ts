@@ -340,6 +340,8 @@ export class RequestSettings implements Partial<IRestClientSettings> {
             this._followRedirect = false;
         } else if (metadatas.has(RequestMetadata.NoCookieJar)) {
             this._rememberCookiesForSubsequentRequests = false;
+        } else if (metadatas.has(RequestMetadata.CookieJar)) {
+            this._rememberCookiesForSubsequentRequests = true;
         }
     }
 }

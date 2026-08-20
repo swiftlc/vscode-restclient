@@ -28,6 +28,12 @@ export enum RequestMetadata {
      * is shown in the response panel (with a raw/extracted toggle).
      */
     ResponsePipeline = 'response-pipeline',
+
+    /**
+     * Explicitly enable the cookie jar for this request (overrides a global
+     * `rest-client.rememberCookiesForSubsequentRequests: false`).
+     */
+    CookieJar = 'cookie-jar',
 }
 
 export function fromString(value: string): RequestMetadata | undefined {

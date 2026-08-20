@@ -115,5 +115,12 @@
             "# @response-pipeline ${1:$.} | key: | value:"
         ],
         "description": "Annotate a request with a response processing pipeline (JSONPath + filters, pipe-separated)"
+    },
+    "Enable cookie jar": {
+        "prefix": "cj",
+        "body": [
+            "# @cookie-jar"
+        ],
+        "description": "Enable cookie jar for this request (overrides the global default)"
     }
 }
