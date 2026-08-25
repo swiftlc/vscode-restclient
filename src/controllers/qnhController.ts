@@ -112,28 +112,32 @@ export class QnhController {
             label = `QNH: ${envKey}`;
         }
 
-        const domain = new URL(host).host;
+        // staging/prod share the prod SSO token (cross-domain); test envs
+        // (swimlane/default) grab from their own domain.
+        const cookieDomain = (envKey === 'staging' || envKey === 'prod')
+            ? new URL(Constants.QnhFixedHosts.prod).host
+            : new URL(host).host;
 
-        // grab the Chrome cookie for the resolved host (non-fatal)
+        // grab the Chrome cookie for the prod host (non-fatal)
         let cookie = '';
         let warned = false;
         try {
-            cookie = await this.client.fetchCookie(domain);
+            cookie = await this.client.fetchCookie(cookieDomain);
         } catch (e) {
             warned = true;
             window.showWarningMessage(`QNH: failed to fetch cookie from alfred (${(e as Error).message}). Host switched, cookie left empty.`);
         }
 
-        // validate the cookie via isLogined; surface tenant/user info on success,
-        // warn about invalid/expired cookie on failure
+        // validate the cookie via isLogined against prod; surface tenant/user
+        // info on success, warn about invalid/expired cookie on failure
         let loginInfo: QnhLoginInfo | undefined;
         if (cookie) {
             try {
-                loginInfo = await this.client.fetchLoginInfo(domain, cookie);
+                loginInfo = await this.client.fetchLoginInfo(cookieDomain, cookie);
             } catch (e) {
                 warned = true;
                 cookie = '';  // drop invalid cookie so it isn't written
-                window.showWarningMessage(`QNH: cookie for ${domain} is invalid or expired (${(e as Error).message}). Please log in to this environment in Chrome first. Host switched, but cookie/tenant info unavailable.`);
+                window.showWarningMessage(`QNH: cookie for ${cookieDomain} is invalid or expired (${(e as Error).message}). Please log in to prod in Chrome first. Host switched, but cookie/tenant info unavailable.`);
             }
         }
 
