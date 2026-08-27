@@ -10,7 +10,8 @@ export class EnvironmentStatusEntry {
         this.environmentEntry.text = environment;
         this.environmentEntry.tooltip = 'Switch REST Client Environment';
         this.environmentEntry.name = 'REST Client Environment';
-        this.environmentEntry.show();
+        // start hidden; only show once a real environment is loaded
+        this.environmentEntry.hide();
 
         window.onDidChangeActiveTextEditor(this.showHideStatusBar, this);
     }
@@ -21,6 +22,13 @@ export class EnvironmentStatusEntry {
 
     public update(environment: string) {
         this.environmentEntry.text = environment;
+        // only show when a real environment is selected; stays hidden for
+        // "No Environment" so the status bar doesn't flash on startup
+        if (!environment || environment === 'No Environment') {
+            this.environmentEntry.hide();
+        } else {
+            this.showHideStatusBar();
+        }
     }
 
     private showHideStatusBar() {

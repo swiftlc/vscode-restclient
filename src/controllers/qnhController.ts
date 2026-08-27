@@ -150,8 +150,9 @@ export class QnhController {
         };
         const config = workspace.getConfiguration('rest-client');
         const inspect = config.inspect<{ [env: string]: { [key: string]: string } }>('environmentVariables');
-        // write to the layer where environmentVariables is already configured, else Global
-        const target = inspect?.workspaceValue !== undefined
+        // default to Workspace (local) scope so the switch only affects the
+        // current workspace; fall back to Global only when there's no workspace
+        const target = workspace.workspaceFolders
             ? ConfigurationTarget.Workspace
             : ConfigurationTarget.Global;
         const base = (inspect?.workspaceValue ?? inspect?.globalValue ?? inspect?.defaultValue ?? {}) as { [env: string]: { [key: string]: string } };

@@ -25,21 +25,30 @@ export class VariableProcessor {
         while (match = variableReferenceRegex.exec(request)) {
             result += request.substring(lastIndex, match.index);
             lastIndex = variableReferenceRegex.lastIndex;
-            const name = match[1].trim();
+            const rawName = match[1].trim();
+            // {{@name}} — like `jq -R`: JSON.stringify the value (add quotes +
+            // escape all special chars) so it can be embedded as a JSON string.
+            const escapeQuotes = rawName[0] === '@';
+            const name = escapeQuotes ? rawName.slice(1) : rawName;
+            const escapeValue = (v: string) => JSON.stringify(v);
             const document = getCurrentTextDocument();
             const context = { rawRequest: request, parsedRequest: result };
             for (const [provider, cacheable] of this.providers) {
                 if (resolvedVariables.has(name)) {
-                    result += resolvedVariables.get(name);
+                    let value = resolvedVariables.get(name)!;
+                    if (escapeQuotes) { value = escapeValue(value); }
+                    result += value;
                     continue variable;
                 }
                 if (await provider.has(name, document, context)) {
                     const { value, error, warning } = await provider.get(name, document, context);
                     if (!error && !warning) {
+                        let resolved = value as string;
+                        if (escapeQuotes) { resolved = escapeValue(resolved); }
                         if (cacheable) {
                             resolvedVariables.set(name, value as string);
                         }
-                        result += value;
+                        result += resolved;
                         continue variable;
                     } else {
                         break;
@@ -47,7 +56,7 @@ export class VariableProcessor {
                 }
             }
 
-            result += `{{${name}}}`;
+            result += `{{${rawName}}}`;
         }
         result += request.substring(lastIndex);
         return result;

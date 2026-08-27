@@ -149,7 +149,7 @@ export class CustomVariableDiagnosticsProvider {
 
         const vars = new Map<string, VariableWithPosition[]>();
         const lines = document.getText().split(Constants.LineSplitterRegex);
-        const pattern = /\{{2}(\w[^\s{}]*)\}{2}/g;
+        const pattern = /\{{2}(@?\w[^\s{}]*)\}{2}/g;
         lines.forEach((line, lineNumber) => {
             if (Selector.isCommentLine(line)) {
                 return;
@@ -159,6 +159,8 @@ export class CustomVariableDiagnosticsProvider {
             while (match = pattern.exec(line)) {
                 const [path] = match;
                 let [, name] = match;
+                // {{@name}} is the jq -R escape syntax — strip the @ prefix
+                name = name.replace(/^@/, '');
                 // For request variable, only keep the first part before dot for name
                 const requestIndex = name.indexOf('.request');
                 if (requestIndex > 0) {
