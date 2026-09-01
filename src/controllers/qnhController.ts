@@ -112,13 +112,11 @@ export class QnhController {
             label = `QNH: ${envKey}`;
         }
 
-        // staging/prod share the prod SSO token (cross-domain); test envs
-        // (swimlane/default) grab from their own domain.
-        const cookieDomain = (envKey === 'staging' || envKey === 'prod')
-            ? new URL(Constants.QnhFixedHosts.prod).host
-            : new URL(host).host;
+        // Always grab cookie from the actual target host (not a shared
+        // domain), since users may only be logged into some environments.
+        const cookieDomain = new URL(host).host;
 
-        // grab the Chrome cookie for the prod host (non-fatal)
+        // grab the Chrome cookie for the target host (non-fatal)
         let cookie = '';
         let warned = false;
         try {
@@ -128,7 +126,7 @@ export class QnhController {
             window.showWarningMessage(`QNH: failed to fetch cookie from alfred (${(e as Error).message}). Host switched, cookie left empty.`);
         }
 
-        // validate the cookie via isLogined against prod; surface tenant/user
+        // validate the cookie via isLogined against the target host; surface tenant/user
         // info on success, warn about invalid/expired cookie on failure
         let loginInfo: QnhLoginInfo | undefined;
         if (cookie) {
@@ -137,7 +135,7 @@ export class QnhController {
             } catch (e) {
                 warned = true;
                 cookie = '';  // drop invalid cookie so it isn't written
-                window.showWarningMessage(`QNH: cookie for ${cookieDomain} is invalid or expired (${(e as Error).message}). Please log in to prod in Chrome first. Host switched, but cookie/tenant info unavailable.`);
+                window.showWarningMessage(`QNH: cookie for ${cookieDomain} is invalid or expired (${(e as Error).message}). Please log in to ${cookieDomain} in Chrome first. Host switched, but cookie/tenant info unavailable.`);
             }
         }
 

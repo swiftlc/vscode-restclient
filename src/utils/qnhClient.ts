@@ -41,16 +41,35 @@ function request(url: string, options: RequestOptions = {}): Promise<{ status: n
         if (lib === https) {
             (reqOptions as any).rejectUnauthorized = false;
         }
+        // DEBUG: log request details
+        console.log(`[QNH] REQUEST: ${options.method || 'GET'} ${url}`);
+        if (options.headers) {
+            for (const [k, v] of Object.entries(options.headers)) {
+                const displayVal = k.toLowerCase() === 'cookie' ? `${v.slice(0, 60)}...(${v.length}chars)` : v;
+                console.log(`[QNH]   header: ${k}: ${displayVal}`);
+            }
+        }
+        if (options.body) {
+            console.log(`[QNH]   body: ${options.body}`);
+        }
         const req = lib.request(url, reqOptions, res => {
             let body = '';
             res.on('data', chunk => body += chunk);
-            res.on('end', () => resolve({ status: res.statusCode ?? 0, body }));
+            res.on('end', () => {
+                // DEBUG: log response details
+                console.log(`[QNH] RESPONSE: status=${res.statusCode}, body=${body.slice(0, 500)}`);
+                resolve({ status: res.statusCode ?? 0, body });
+            });
         });
         req.on('timeout', () => {
             req.destroy();
+            console.log(`[QNH] TIMEOUT: ${url}`);
             reject(new Error('Request timeout'));
         });
-        req.on('error', reject);
+        req.on('error', (err) => {
+            console.log(`[QNH] ERROR: ${err.message}`);
+            reject(err);
+        });
         if (options.body) {
             req.write(options.body);
         }
@@ -100,8 +119,11 @@ export class QnhClient {
 
     public async fetchCookie(host: string): Promise<string> {
         const url = `${this.baseUrl}/api/qnh/cookie?host=${encodeURIComponent(host)}`;
+        console.log(`[QNH] fetchCookie: GET ${url}`);
         const json = await requestJson(url);
-        return json?.cookie ? String(json.cookie) : '';
+        const cookie = json?.cookie ? String(json.cookie) : '';
+        console.log(`[QNH] fetchCookie: success=${json?.success}, cookie length=${cookie.length}`);
+        return cookie;
     }
 
     /**
@@ -112,15 +134,20 @@ export class QnhClient {
     public async fetchLoginInfo(host: string, cookie: string): Promise<QnhLoginInfo> {
         const url = `https://${host}${QnhIsLoginedPath}?${QnhIsLoginedQuery}`;
         // tolerate non-2xx so we can surface the server's own error message
+        const body = '{}';
+        console.log(`[QNH] fetchLoginInfo: POST ${url}`);
+        console.log(`[QNH] fetchLoginInfo: cookie length=${cookie.length}`);
         const json = await requestJson(url, {
             method: 'POST',
             tolerateStatus: true,
             headers: {
                 'cookie': cookie,
                 'content-type': 'application/json',
-                'content-length': '0',
+                'content-length': String(body.length),
             },
+            body,
         });
+        console.log(`[QNH] fetchLoginInfo: code=${json?.code}, logined=${json?.data?.logined}, msg=${json?.msg}`);
         if (!json || json.code !== 0 || !json.data) {
             throw new Error(json?.msg || 'login info unavailable');
         }
