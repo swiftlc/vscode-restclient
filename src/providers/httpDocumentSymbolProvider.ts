@@ -79,17 +79,13 @@ export class HttpDocumentSymbolProvider implements DocumentSymbolProvider {
     }
 
     private async getRequestSymbolInfo(rawText: string, name: string | undefined, delimiterTitle?: string): Promise<[string, string]> {
-        // For request with name, return the request name and file name instead
-        if (name) {
-            return [name, getCurrentHttpFileName()!];
-        }
-
         const text = await VariableProcessor.processRawRequest(rawText);
         const parser = RequestParserFactory.createRequestParser(text);
         const request = await parser.parseHttpRequest();
         const parsedUrl = url.parse(request.url);
-        const methodPath = `${request.method} ${parsedUrl.path || '/'}`;
-        // show the `### <title>` as the container when present, else the host
-        return [methodPath, delimiterTitle || parsedUrl.host || ''];
+        // drop the HTTP method to keep symbols compact
+        const apiPath = parsedUrl.pathname || '/';
+        // title: `### <title>` > request variable name > API path; subtitle: API path
+        return [delimiterTitle || name || apiPath, apiPath];
     }
 }

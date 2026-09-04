@@ -7,6 +7,7 @@ import { EnvironmentController } from './controllers/environmentController';
 import { HistoryController } from './controllers/historyController';
 import { RequestController } from './controllers/requestController';
 import { SwaggerController } from './controllers/swaggerController';
+import { SymbolSearchController } from './controllers/symbolSearchController';
 import { QnhController } from './controllers/qnhController';
 import { CustomVariableDiagnosticsProvider } from "./providers/customVariableDiagnosticsProvider";
 import { RequestBodyDocumentLinkProvider } from './providers/documentLinkProvider';
@@ -36,6 +37,7 @@ export async function activate(context: ExtensionContext) {
     const environmentController = await EnvironmentController.create();
     const swaggerController = new SwaggerController(context);
     const qnhController = new QnhController(context);
+    const symbolSearchController = new SymbolSearchController();
     // restore the last QNH environment on activation (re-fetch cookie + validate login)
     void qnhController.restoreLastEnvironment();
     context.subscriptions.push(requestController);
@@ -43,10 +45,12 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(codeSnippetController);
     context.subscriptions.push(environmentController);
     context.subscriptions.push(qnhController);
+    context.subscriptions.push(symbolSearchController);
     context.subscriptions.push(commands.registerCommand('rest-client.request', ((document: TextDocument, range: Range) => requestController.run(range))));
     context.subscriptions.push(commands.registerCommand('rest-client.rerun-last-request', () => requestController.rerun()));
     context.subscriptions.push(commands.registerCommand('rest-client.cancel-request', () => requestController.cancel()));
     context.subscriptions.push(commands.registerCommand('rest-client.history', () => historyController.save()));
+context.subscriptions.push(commands.registerCommand('rest-client.search-symbols', () => symbolSearchController.search()));
     context.subscriptions.push(commands.registerCommand('rest-client.clear-history', () => historyController.clear()));
     context.subscriptions.push(commands.registerCommand('rest-client.generate-codesnippet', () => codeSnippetController.run()));
     context.subscriptions.push(commands.registerCommand('rest-client.copy-request-as-curl', () => codeSnippetController.copyAsCurl()));
