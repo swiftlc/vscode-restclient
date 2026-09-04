@@ -104,6 +104,11 @@
         "category": "Rest Client"
       },
       {
+        "command": "rest-client.open-qnh-host",
+        "title": "Open QNH Host in Chrome",
+        "category": "Rest Client"
+      },
+      {
         "command": "rest-client.reload-qnh-environment",
         "title": "Reload QNH Environment Variables",
         "category": "Rest Client"

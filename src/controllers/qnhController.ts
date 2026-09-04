@@ -1,3 +1,4 @@
+import { execFile } from 'child_process';
 import { ConfigurationTarget, ExtensionContext, QuickPickItem, window, workspace } from 'vscode';
 import * as Constants from '../common/constants';
 import { SystemSettings } from '../models/configurationSettings';
@@ -90,6 +91,39 @@ export class QnhController {
      */
     public async reloadEnvironment(): Promise<void> {
         await this.restoreLastEnvironment();
+    }
+
+    /**
+     * Open the current QNH environment host in Chrome — the QNH cookie is grabbed
+     * from Chrome, so jumping there is the quickest way to (re)log in when the
+     * cookie is missing or expired.
+     */
+    @trace('Open QNH Host in Chrome')
+    public async openHostInChrome(): Promise<void> {
+        const host = this.getCurrentHost();
+        if (!host) {
+            window.showWarningMessage('QNH: no environment switched yet — switch one from the status bar first.');
+            return;
+        }
+        // execFile (no shell) so a crafted swimlane value can't inject shell code
+        const [file, ...args] = process.platform === 'win32'
+            ? ['cmd', '/c', 'start', 'chrome', host]
+            : process.platform === 'darwin'
+                ? ['open', '-a', 'Google Chrome', host]
+                : ['google-chrome', host];
+        execFile(file, args, error => {
+            if (error) {
+                window.showWarningMessage(`QNH: failed to open ${host} in Chrome (${error.message}).`);
+            }
+        });
+    }
+
+    /** The resolved host of the currently active QNH environment, if switched. */
+    private getCurrentHost(): string | undefined {
+        const envVars = workspace.getConfiguration('rest-client')
+            .get<{ [env: string]: { [key: string]: string } }>('environmentVariables');
+        const host = envVars?.[Constants.QnhEnvironmentName]?.[Constants.QnhHostVariableName];
+        return host || undefined;
     }
 
     /**
