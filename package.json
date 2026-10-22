@@ -39,7 +39,8 @@
     "multi-root ready"
   ],
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onLanguage:java"
   ],
   "main": "./dist/extension",
   "contributes": {
@@ -101,6 +102,11 @@
       {
         "command": "rest-client.switch-qnh-environment",
         "title": "Switch QNH Environment",
+        "category": "Rest Client"
+      },
+      {
+        "command": "rest-client.switch-lion-environment",
+        "title": "Switch Lion Environment",
         "category": "Rest Client"
       },
       {
@@ -505,6 +511,18 @@
           "default": "http://localhost:8080",
           "scope": "resource",
           "markdownDescription": "Base URL of the local alfred proxy-server used for QNH (牵牛花) environment switching: querying the swimlane dictionary and grabbing Chrome cookies for the target host."
+        },
+        "rest-client.lion.proxyUrl": {
+          "type": "string",
+          "default": "http://www.swiftlc.com/api/sso",
+          "scope": "resource",
+          "markdownDescription": "Proxy-server endpoint used to query the Lion config center for Java string hover. The target Lion URL is passed in the `x-proxy-dest` header."
+        },
+        "rest-client.lion.appKey": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "Override the Lion appkey used for Java string hover. Empty means auto-detect from `plusboot.yaml` (`apps[].appkey`)."
         },
         "rest-client.mimeAndFileExtensionMapping": {
           "type": "object",

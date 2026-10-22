@@ -5,6 +5,7 @@ import { commands, ExtensionContext, languages, Range, TextDocument, Uri, window
 import { CodeSnippetController } from './controllers/codeSnippetController';
 import { EnvironmentController } from './controllers/environmentController';
 import { HistoryController } from './controllers/historyController';
+import { LionController } from './controllers/lionController';
 import { RequestController } from './controllers/requestController';
 import { SwaggerController } from './controllers/swaggerController';
 import { SymbolSearchController } from './controllers/symbolSearchController';
@@ -18,6 +19,7 @@ import { FileVariableReferencesCodeLensProvider } from './providers/fileVariable
 import { HttpCodeLensProvider } from './providers/httpCodeLensProvider';
 import { HttpCompletionItemProvider } from './providers/httpCompletionItemProvider';
 import { HttpDocumentSymbolProvider } from './providers/httpDocumentSymbolProvider';
+import { JavaLionHoverProvider } from './providers/javaLionHoverProvider';
 import { MarkdownCodeLensProvider } from './providers/markdownCodeLensProvider';
 import { RequestVariableCompletionItemProvider } from "./providers/requestVariableCompletionItemProvider";
 import { RequestVariableDefinitionProvider } from './providers/requestVariableDefinitionProvider';
@@ -46,6 +48,10 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(environmentController);
     context.subscriptions.push(qnhController);
     context.subscriptions.push(symbolSearchController);
+    const lionController = new LionController(context);
+    context.subscriptions.push(lionController);
+    context.subscriptions.push(commands.registerCommand('rest-client.switch-lion-environment', () => lionController.switchEnvironment()));
+    context.subscriptions.push(languages.registerHoverProvider({ language: 'java', scheme: 'file' }, new JavaLionHoverProvider(lionController)));
     context.subscriptions.push(commands.registerCommand('rest-client.request', ((document: TextDocument, range: Range) => requestController.run(range))));
     context.subscriptions.push(commands.registerCommand('rest-client.rerun-last-request', () => requestController.rerun()));
     context.subscriptions.push(commands.registerCommand('rest-client.cancel-request', () => requestController.cancel()));
